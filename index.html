@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Aim Test Game</title>
+  <style>
+    body {
+      margin: 0;
+      background: url('https://i.pinimg.com/originals/08/00/7f/08007fe2fff0c9717541503b2a8248ec.gif') no-repeat center center fixed;
+      background-size: cover;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      color: white;
+      text-align: center;
+    }
+
+    #hud {
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 999;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .hearts {
+      display: flex;
+      gap: 5px;
+    }
+
+    .hearts img {
+      width: 30px;
+      height: 30px;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+
+    .hearts img.lost {
+      transform: scale(1.5);
+      opacity: 0;
+    }
+
+    .target {
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      background: url('https://i.redd.it/8fpmswc0avmb1.gif') no-repeat center center;
+      background-size: contain;
+      border: none;
+      cursor: pointer;
+    }
+
+    #winMessage, #loseMessage {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 2rem;
+      background: rgba(0, 128, 0, 0.8);
+      padding: 20px 40px;
+      border-radius: 12px;
+      display: none;
+      z-index: 1000;
+    }
+
+    #loseMessage {
+      background: rgba(200, 0, 0, 0.8);
+    }
+
+    #startButton {
+      margin-top: 100px;
+      padding: 15px 30px;
+      font-size: 1.5rem;
+      border-radius: 10px;
+      border: none;
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+
+    #startButton:active {
+      background: #0056b3;
+    }
+
+    #timer {
+      font-size: 1.5rem;
+      margin-left: 10px;
+      color: #ffeb3b;
+    }
+  </style>
+</head>
+<body>
+
+<div id="hud">
+  Target: 15 | Hits: <span id="score">0</span>
+  <div class="hearts" id="hearts"></div>
+  <div id="timer">2s</div>
+</div>
+
+<div id="winMessage">🎉 You Win! 🎉</div>
+<div id="loseMessage">💔 Game Over 💔</div>
+
+<button id="startButton">Start Aim Test</button>
+
+<!-- Hit sound -->
+<audio id="hitSound" src="https://freesound.org/data/previews/64/64610_634166-lq.mp3"></audio>
+
+<script>
+  const totalHits = 15;
+  const maxLives = 3;
+  let currentHits = 0;
+  let currentLives = maxLives;
+  let gameRunning = false;
+  let spawnInterval;
+  let countdownInterval;
+
+  const hudScore = document.getElementById('score');
+  const heartsContainer = document.getElementById('hearts');
+  const winMessage = document.getElementById('winMessage');
+  const loseMessage = document.getElementById('loseMessage');
+  const startButton = document.getElementById('startButton');
+  const timerDisplay = document.getElementById('timer');
+  const hitSound = document.getElementById('hitSound');
+
+  function updateHearts() {
+    heartsContainer.innerHTML = '';
+    for (let i = 0; i < currentLives; i++) {
+      const heart = document.createElement('img');
+      heart.src = 'https://media.tenor.com/m91BAUnkYw0AAAAM/heart-pixel-art.gif';
+      heartsContainer.appendChild(heart);
+    }
+  }
+
+  function loseLife() {
+    currentLives--;
+    const heart = heartsContainer.querySelector('img:last-child');
+    if (heart) {
+      heart.classList.add('lost');
+      setTimeout(() => {
+        updateHearts();
+      }, 300);
+    }
+  }
+
+  function spawnTargets() {
+    if (!gameRunning) return;
+
+    let targets = [];
+
+    for (let i = 0; i < 3; i++) {
+      const target = document.createElement('button');
+      target.classList.add('target');
+
+      const maxX = window.innerWidth - 80;
+      const maxY = window.innerHeight - 80;
+      const x = Math.random() * maxX;
+      const y = Math.random() * maxY;
+
+      target.style.left = `${x}px`;
+      target.style.top = `${y}px`;
+
+      target.addEventListener('click', () => {
+        currentHits++;
+        hudScore.textContent = currentHits;
+        target.remove();
+        hitSound.currentTime = 0;
+        hitSound.play();
+
+        if (currentHits >= totalHits) {
+          gameOver(true);
+        }
+      });
+
+      document.body.appendChild(target);
+      targets.push(target);
+    }
+
+    let countdown = 2;
+    timerDisplay.textContent = countdown + 's';
+
+    clearInterval(countdownInterval);
+    countdownInterval = setInterval(() => {
+      countdown--;
+      timerDisplay.textContent = countdown + 's';
+      if (countdown <= 0) {
+        clearInterval(countdownInterval);
+      }
+    }, 1000);
+
+    // After 2 seconds: check if all were hit
+    setTimeout(() => {
+      const remaining = targets.filter(t => document.body.contains(t));
+      remaining.forEach(t => t.remove());
+
+      if (remaining.length > 0) {
+        loseLife();
+
+        if (currentLives <= 0) {
+          gameOver(false);
+        }
+      }
+    }, 2000);
+  }
+
+  function gameOver(win) {
+    gameRunning = false;
+    clearInterval(spawnInterval);
+    clearInterval(countdownInterval);
+    document.querySelectorAll('.target').forEach(target => target.remove());
+    timerDisplay.textContent = '2s';
+
+    // Inside gameOver(win) change the win part:
+
+if (win) {
+  winMessage.style.display = 'block';
+  setTimeout(() => {
+    document.body.innerHTML = `
+      <div style="
+        background: url('https://img.freepik.com/premium-vector/golden-floral-style-border-frame-design-contrasts-with-black-color-page-decoration_529493-45.jpg?w=360') no-repeat center center fixed; 
+        background-size: cover; 
+        height: 100vh; 
+        margin: 0; 
+        padding: 0; 
+        font-family: 'Comic Sans MS', cursive; 
+        color: #98ffdc; 
+        ">
+        <div style="
+          width: 100%;
+          text-align: center;
+          padding: 15px 10px;
+          background: rgba(10, 10, 10, 0.5);
+          font-size: 20px;
+          line-height: 1.5;
+          position: fixed;
+          top: 0;
+          left: 0;
+          z-index: 10;
+          ">
+          right now, you're seeing someone beautiful 🥰  
+          <br><br>if you don’t feel that way yet 🤗 you are still soft, kind, and lovely 😉 just as you are 😊 
+          <span style="display:inline-block;font-size:24px;margin-left:5px;animation:pulse 1.5s infinite;">♡</span>
+          <style>
+            @keyframes pulse {
+              0% { transform: scale(1); }
+              50% { transform: scale(1.1); }
+              100% { transform: scale(1); }
+            }
+          </style>
+        </div>
+      </div>
+    `;
+  }, 2000);
+
+    } else {
+      loseMessage.style.display = 'block';
+    }
+
+    startButton.style.display = 'block';
+    startButton.textContent = 'Restart';
+  }
+
+  function startGame() {
+    currentHits = 0;
+    currentLives = maxLives;
+    hudScore.textContent = currentHits;
+    winMessage.style.display = 'none';
+    loseMessage.style.display = 'none';
+    startButton.style.display = 'none';
+    gameRunning = true;
+    updateHearts();
+    timerDisplay.textContent = '2s';
+
+    spawnTargets();
+    spawnInterval = setInterval(spawnTargets, 3000);
+  }
+
+  startButton.addEventListener('click', startGame);
+</script>
+
+</body>
+</html>
